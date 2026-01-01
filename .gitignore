@@ -15,6 +15,9 @@ dist-ssr
 # Temp clone folder (local only)
 qr-pro-remote/
 
+# ESLint
+.eslintcache
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
