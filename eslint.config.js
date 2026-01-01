@@ -20,6 +20,21 @@ export default defineConfig([
     },
   },
   {
+    files: [
+      'vite.config.js',
+      'eslint.config.js',
+      'scripts/**/*.{js,mjs}',
+      'jest.setup.js',
+    ],
+    languageOptions: {
+      globals: globals.node,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+      },
+    },
+  },
+  {
     files: ['**/*.{js,jsx}'],
     extends: [
       js.configs.recommended,
