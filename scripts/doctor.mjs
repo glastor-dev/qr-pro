@@ -64,11 +64,8 @@ const targets = [
   path.join(projectRoot, 'scripts'),
   path.join(projectRoot, 'README.md'),
   path.join(projectRoot, 'CHANGELOG.md'),
-  path.join(projectRoot, 'jest.config.cjs'),
-  path.join(projectRoot, 'jest.setup.cjs'),
   path.join(projectRoot, 'eslint.config.js'),
   path.join(projectRoot, 'vite.config.js'),
-  path.join(projectRoot, 'babel.config.json'),
 ];
 
 /** @type {string[]} */

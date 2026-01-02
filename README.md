@@ -8,14 +8,13 @@ Herramienta interna de **GLASTOR-DEV** para generar, personalizar y **exportar c
 
 Nota: los badges de **CI/Deploy/CodeQL** requieren que los workflows estén publicados en el repositorio remoto.
 
-![Preview](./src/assets/FireShot2.png)
+![Preview](./docs/F16.png)
 
 ## Tabla de Contenidos
 
 - [QR Pro (Logística)](#qr-pro-logística)
   - [Tabla de Contenidos](#tabla-de-contenidos)
   - [Características](#características)
-  - [Importación masiva](#importación-masiva)
   - [Exportación](#exportación)
   - [Requisitos](#requisitos)
   - [Uso](#uso)
@@ -44,19 +43,6 @@ Personalización:
 - Logo centrado (opcional)
 - Modo accesible (foco/outline visible)
 
-## Importación masiva
-
-Genera un `.zip` con PNGs a partir de un archivo:
-
-- `.xlsx` (Excel)
-- `.csv`
-
-Requisitos del archivo (datos reales usados por la app):
-
-- Debe tener encabezados y al menos una fila.
-- Debe incluir las columnas **"fecha"** y **"url"**.
-- `.xls` no está soportado: **"xls no soportado, exporta a .xlsx"**.
-
 ## Exportación
 
 - Descargar **SVG**
@@ -69,6 +55,7 @@ Requisitos del archivo (datos reales usados por la app):
 
 - Node.js 20 (recomendado, alineado con CI)
 - npm
+- Deno (para correr tests en CI/local)
 
 ## Uso
 
@@ -87,7 +74,7 @@ npm run build
 
 - `npm run dev` — desarrollo
 - `npm run build` — build de producción
-- `npm test` — tests (Jest)
+- `npm test` — tests (Deno)
 - `npm run lint` — ESLint
 - `npm run typecheck` — TypeScript (`tsc`)
 
@@ -96,12 +83,11 @@ npm run build
 - **React 19**
 - **Vite 7**
 - **TypeScript**
-- **Jest** + Testing Library
+- **Deno test** + Testing Library
 - **ESLint**
 - **react-qr-code** + **qrcode**
 - **jszip** + **file-saver**
 - **jspdf**
-- **exceljs** (`.xlsx`) + **papaparse** (`.csv`)
 
 ## Buenas prácticas
 

@@ -9,7 +9,7 @@ import tsPlugin from '@typescript-eslint/eslint-plugin'
 export default defineConfig([
   globalIgnores(['dist', 'qr-pro-remote', 'qr-pro-remote/**']),
   {
-    files: ['**/*.cjs', '__mocks__/**/*.{js,jsx,ts,tsx}'],
+    files: ['**/*.cjs'],
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.node,
@@ -24,7 +24,6 @@ export default defineConfig([
       'vite.config.js',
       'eslint.config.js',
       'scripts/**/*.{js,mjs}',
-      'jest.setup.js',
     ],
     languageOptions: {
       globals: globals.node,

@@ -1,5 +1,3 @@
-# Changelog
-
 <p align="center">
   <img src="https://img.shields.io/badge/Format-Keep%20a%20Changelog-blue.svg" alt="Keep a Changelog">
   <img src="https://img.shields.io/badge/Versioning-SemVer%202.0.0-green.svg" alt="Semantic Versioning">
@@ -37,7 +35,6 @@ MAJOR.MINOR.PATCH (e.g., 1.0.0)
 ---
 
 ## [Unreleased]
-
 ### 🔮 Planned Features
 
 - [ ] Dark/Light theme persistence in localStorage
@@ -46,6 +43,32 @@ MAJOR.MINOR.PATCH (e.g., 1.0.0)
 - [ ] QR template library
 - [ ] Advanced customization (patterns, colors, gradients)
 - [ ] Analytics dashboard for generated QRs
+
+---
+
+## [1.1.2] - 2026-01-02
+
+**Release Type:** Patch Release
+
+### ✨ Added
+
+- Columna promocional a la derecha con copy de servicios y CTA **"Reservar Asesoría Online"** (enlace por email `mailto:`).
+
+### 🔄 Changed
+
+- UI: la columna promocional se alinea a la altura de la vista previa del QR (solo en desktop).
+- UI: el footer se renderiza al final del layout para que en responsive quede siempre abajo.
+- Dev: `base` en desarrollo se fuerza a `/` para evitar problemas de navegación/HMR; en build se mantiene la lógica para Vercel y `/qr-pro/`.
+- Testing: migración del runner a `deno test` (setup con `happy-dom` + `@testing-library/react`).
+- Limpieza: removida la configuración legacy de Jest/Babel (scripts y dependencias asociadas).
+
+### 🗑️ Removed
+
+- Carga masiva (CSV/Excel) eliminada para reducir peso y complejidad.
+
+### 🐛 Fixed
+
+- Previsualización del QR: compatibilidad con exports “exóticos” (e.g. `forwardRef`/`memo`) de `react-qr-code`.
 
 ---
 

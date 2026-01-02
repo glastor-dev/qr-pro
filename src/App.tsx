@@ -1,12 +1,46 @@
 import React, { useRef, useState } from 'react';
-import jsPDF from 'jspdf';
-import QRCodeLib from 'qrcode';
-import JSZip from 'jszip';
-import { saveAs } from 'file-saver';
-import './App.css';
-import LogoInQR from './LogoInQR';
-import logo from './assets/TEMPLATE-LOGO-ML-1080-RGB.png';
-import QRCode from 'react-qr-code';
+import LogoInQR from './LogoInQR.tsx';
+import * as QRCodeModule from 'react-qr-code';
+
+type QRCodeProps = {
+  value: string;
+  size?: number;
+  fgColor?: string;
+  bgColor?: string;
+  level?: string;
+  style?: React.CSSProperties;
+};
+
+type QRCodeComponentType = React.ElementType<QRCodeProps>;
+
+function isReactComponentType(value: unknown): value is QRCodeComponentType {
+  if (typeof value === 'function') return true;
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.$$typeof === 'symbol';
+}
+
+function resolveQRCodeComponent(): QRCodeComponentType {
+  const mod = QRCodeModule as unknown;
+  if (isReactComponentType(mod)) return mod;
+
+  if (mod && typeof mod === 'object') {
+    const asRecord = mod as Record<string, unknown>;
+    if (isReactComponentType(asRecord.QRCode)) return asRecord.QRCode;
+
+    const defaultExport = asRecord.default;
+    if (isReactComponentType(defaultExport)) return defaultExport;
+    if (defaultExport && typeof defaultExport === 'object') {
+      const nested = defaultExport as Record<string, unknown>;
+      if (isReactComponentType(nested.QRCode)) return nested.QRCode;
+      if (isReactComponentType(nested.default)) return nested.default;
+    }
+  }
+
+  return (() => null) as QRCodeComponentType;
+}
+
+const QRCodeComponent = resolveQRCodeComponent();
 
 type QrType = 'url' | 'text' | 'vcard' | 'wifi' | 'email' | 'sms' | 'event';
 
@@ -55,7 +89,27 @@ type FormState = {
 
 type HistoryItem = { value: string; date: number };
 
-const myLogo = logo;
+const myLogo = new URL('./assets/TEMPLATE-LOGO-ML-1080-RGB.png', import.meta.url).toString();
+
+async function getSaveAs() {
+  const mod = await import('file-saver');
+  return mod.saveAs;
+}
+
+async function getQRCodeLib() {
+  const mod = await import('qrcode');
+  return mod.default;
+}
+
+async function getJsPDF() {
+  const mod = await import('jspdf');
+  return mod.default;
+}
+
+async function getJSZip() {
+  const mod = await import('jszip');
+  return mod.default;
+}
 
 function App() {
   const [qrType, setQrType] = useState<QrType>('url');
@@ -305,7 +359,10 @@ function App() {
     const serializer = new XMLSerializer();
     const svg = svgRef.current;
     const svgBlob = new Blob([serializer.serializeToString(svg)], { type: 'image/svg+xml' });
-    saveAs(svgBlob, `${fileName || 'qr-code'}.svg`);
+    void (async () => {
+      const saveAs = await getSaveAs();
+      saveAs(svgBlob, `${fileName || 'qr-code'}.svg`);
+    })();
     saveToHistory(getQRValue());
   };
 
@@ -316,6 +373,8 @@ function App() {
     }
 
     try {
+      const QRCodeLib = await getQRCodeLib();
+      const saveAs = await getSaveAs();
       const qrDataUrl = await QRCodeLib.toDataURL(getQRValue(), {
         errorCorrectionLevel: 'H',
         margin: 2,
@@ -441,6 +500,8 @@ function App() {
       waitCount++;
     }
 
+    const jsPDF = await getJsPDF();
+    const QRCodeLib = await getQRCodeLib();
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [qrSize, qrSize + 40] });
 
     const generateQRWithLogo = async (value: string) => {
@@ -538,6 +599,9 @@ function App() {
 
   const handleExportAllZIP = async () => {
     if (!history.length) return;
+    const JSZip = await getJSZip();
+    const QRCodeLib = await getQRCodeLib();
+    const saveAs = await getSaveAs();
     const zip = new JSZip();
     let csv = 'archivo,valor,fecha\n';
 
@@ -564,138 +628,6 @@ function App() {
     zip.file('metadatos.csv', csv);
     const blob = await zip.generateAsync({ type: 'blob' });
     saveAs(blob, 'qr-historial.zip');
-  };
-
-  const handleExcelUpload = async (file: File | undefined) => {
-    if (!file) return;
-
-    const lowerName = file.name.toLowerCase();
-    const isCsv = lowerName.endsWith('.csv');
-    const isXlsx = lowerName.endsWith('.xlsx');
-    const isXls = lowerName.endsWith('.xls');
-
-    if (isXls) {
-      setError('xls no soportado, exporta a .xlsx');
-      return;
-    }
-
-    if (!isCsv && !isXlsx) {
-      setError('Solo se permiten archivos .xlsx o .csv');
-      return;
-    }
-
-    const cellToString = (value: unknown): string => {
-      if (value == null) return '';
-      if (value instanceof Date) return value.toISOString();
-      if (typeof value === 'object') {
-        const record = value as Record<string, unknown>;
-        const text = record['text'];
-        if (typeof text === 'string') return text;
-        const hyperlink = record['hyperlink'];
-        if (typeof hyperlink === 'string') return hyperlink;
-        if ('result' in record) return String(record['result']);
-      }
-      return String(value);
-    };
-
-    let rows: (string | number | null)[][] = [];
-
-    try {
-      if (isCsv) {
-        const { default: Papa } = await import('papaparse');
-        const text = await file.text();
-        const parsed = Papa.parse<string[]>(text, { skipEmptyLines: true });
-        if (parsed.errors.length) {
-          setError('No se pudo parsear el CSV.');
-          return;
-        }
-        rows = (parsed.data as unknown as string[][]).map((r) => r.map((c) => (c ?? '')));
-      } else {
-        const { default: ExcelJS } = await import('exceljs');
-        const buffer = await file.arrayBuffer();
-        const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.load(buffer);
-        const ws = workbook.worksheets[0];
-        if (!ws) {
-          setError('El archivo Excel no tiene hojas.');
-          return;
-        }
-
-        const headerRow = ws.getRow(1);
-        const headerValues = (headerRow.values as unknown[]).slice(1);
-        rows.push(headerValues.map((v) => cellToString(v)));
-
-        for (let r = 2; r <= ws.rowCount; r++) {
-          const row = ws.getRow(r);
-          const values = (row.values as unknown[]).slice(1);
-          if (!values.length) continue;
-          rows.push(values.map((v) => cellToString(v)));
-        }
-      }
-    } catch {
-      setError('No se pudo leer el archivo.');
-      return;
-    }
-
-    if (rows.length < 2) {
-      setError('El archivo debe tener encabezados y al menos una fila de datos.');
-      return;
-    }
-
-    const headers = rows[0].map((h) => String(h ?? ''));
-    const fechaIdx = headers.findIndex((h) => h.toLowerCase().includes('fecha'));
-    const urlIdx = headers.findIndex((h) => h.toLowerCase().includes('url'));
-
-    if (fechaIdx === -1 || urlIdx === -1) {
-      setError('El archivo debe tener columnas "fecha" y "url".');
-      return;
-    }
-
-    const zip = new JSZip();
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
-      const fecha = row?.[fechaIdx] ?? '';
-      const url = row?.[urlIdx] ?? '';
-      const urlStr = String(url).trim();
-      if (!urlStr) continue;
-
-      const png = await QRCodeLib.toDataURL(urlStr, { errorCorrectionLevel: 'H', margin: 2, width: 256 });
-      const safeFecha = String(fecha).replace(/[^a-zA-Z0-9-_]/g, '_');
-      const safeUrl = urlStr.replace(/[^a-zA-Z0-9-_]/g, '_').slice(0, 20);
-      const filename = `${safeFecha}_${safeUrl}.png`;
-      zip.file(filename, png.split(',')[1], { base64: true });
-    }
-
-    const blob = await zip.generateAsync({ type: 'blob' });
-    saveAs(blob, 'qr-masivo.zip');
-    setError('');
-  };
-
-  const handleExcelInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    void handleExcelUpload(file);
-  };
-
-  const handleExcelDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-
-    const lowerName = file.name.toLowerCase();
-    if (lowerName.endsWith('.xls')) {
-      setError('xls no soportado, exporta a .xlsx');
-      return;
-    }
-
-    if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.csv')) {
-      void handleExcelUpload(file);
-    } else {
-      setError('Solo se permiten archivos .xlsx o .csv');
-    }
-  };
-
-  const handleExcelDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
   };
 
   return (
@@ -815,7 +747,7 @@ function App() {
             aria-label="Código QR generado"
             className="qr-animate"
           >
-            <QRCode value={getQRValue()} size={qrSize} level="H" fgColor={qrColor} bgColor={bgColor} />
+            <QRCodeComponent value={getQRValue()} size={qrSize} level="H" fgColor={qrColor} bgColor={bgColor} />
             {logoUrl && <LogoInQR size={qrSize * 0.25} logo={logoUrl} qrSize={qrSize} />}
           </svg>
         ) : (
@@ -873,60 +805,43 @@ function App() {
           </ul>
         </div>
       )}
+    </div>
+  );
+}
 
-      <div style={{ marginTop: 24 }}>
-        <div
-          style={{ display: 'inline-block' }}
-          onDrop={handleExcelDrop}
-          onDragOver={handleExcelDragOver}
-          tabIndex={0}
-          aria-label="Zona de carga masiva Excel"
-        >
-          <label style={{ fontSize: 14, color: '#6366f1', display: 'block', cursor: 'pointer' }}>
-            Carga masiva (Excel):
-            <input
-              type="file"
-              accept=".xlsx,.csv"
-              onChange={handleExcelInput}
-              style={{ marginLeft: 8, verticalAlign: 'middle', display: 'inline-block' }}
-            />
-            <span style={{ display: 'block', fontSize: 12, color: '#a5b4fc' }}>Arrastra y suelta aquí tu archivo</span>
-          </label>
+export function AppFooter() {
+  return (
+    <footer className="footer">
+      <div className="footer-content">
+        <p className="footer-text">© 2010-2026 <strong>GLASTOR-DEV</strong> — Todos los derechos reservados. GLASTOR® marca registrada.</p>
+        <div className="footer-links">
+          <a
+            href="https://github.com/glastor-dev/qr-pro"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="footer-link"
+            aria-label="Ver código en GitHub"
+          >
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
+            </svg>
+            GitHub
+          </a>
+          <span className="footer-separator">•</span>
+          <a
+            href="https://github.com/glastor-dev/qr-pro/blob/main/LICENSE"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="footer-link"
+            aria-label="Ver licencia GPL-3.0"
+          >
+            GPL-3.0
+          </a>
+          <span className="footer-separator">•</span>
+          <span className="footer-version">v1.1.2</span>
         </div>
       </div>
-
-      <footer className="footer">
-        <div className="footer-content">
-          <p className="footer-text">© 2010-2026 <strong>GLASTOR-DEV</strong> — Todos los derechos reservados. GLASTOR® marca registrada.</p>
-          <div className="footer-links">
-            <a
-              href="https://github.com/glastor-dev/qr-pro"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="footer-link"
-              aria-label="Ver código en GitHub"
-            >
-              <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
-              </svg>
-              GitHub
-            </a>
-            <span className="footer-separator">•</span>
-            <a
-              href="https://github.com/glastor-dev/qr-pro/blob/main/LICENSE"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="footer-link"
-              aria-label="Ver licencia GPL-3.0"
-            >
-              GPL-3.0
-            </a>
-            <span className="footer-separator">•</span>
-            <span className="footer-version">v1.0.0</span>
-          </div>
-        </div>
-      </footer>
-    </div>
+    </footer>
   );
 }
 
